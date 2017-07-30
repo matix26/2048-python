@@ -10,7 +10,7 @@ except ImportError:
 from random import choice
 
 CELL_SIZE = 100 # in pixels
-GRID_LEN = 4
+GRID_LEN = 3
 GRID_PADDING = 10
 
 BACKGROUND_COLOR_GAME = "#92877d"
@@ -56,35 +56,37 @@ class Cell(tk.Frame):
         if ANIMATE and value is not None and self.lbl['bg'] != bg:
             self.config(bg=bg)
             self.after(120, self.shrink)
-        self.lbl.config(text=text, bg=bg, fg=fg)
+        if len(text) <=2:
+            font = FONT
+        elif len(text) == 3:
+            font = FONT_MED
+        else:
+            font = FONT_SMALL
+        self.lbl.config(text=text, font=font, bg=bg, fg=fg)
 
     def shrink(self):
         self.config(bg=BACKGROUND_COLOR_GAME)
 
-class LoseMessage(tk.Frame):
-    def __init__(self, master=None, **kwargs):
+class Message(tk.Frame):
+    def __init__(self, master=None, text=None, **kwargs):
         tk.Frame.__init__(self, master, bd=4, relief=tk.RIDGE, **kwargs)
-        self.lbl = tk.Label(self, text="You Lose!!", font=FONT)
-        self.lbl.pack()
+        self.lbl = tk.Label(self, text=text, font=FONT)
+        self.lbl.pack(padx=GRID_PADDING, pady=GRID_PADDING)
 
-        btn = tk.Button(self, font=FONT, text='Restart', command=master.restart)
-        btn.pack()
+        btn = tk.Button(self, font=FONT, text='Continue', command=lambda: self.cont(False))
+        btn.pack(padx=GRID_PADDING, fill=tk.X, expand=True)
+        btn.focus()
 
-class WinMessage(tk.Frame):
-    def __init__(self, master=None, **kwargs):
-        tk.Frame.__init__(self, master, bd=4, relief=tk.RIDGE, **kwargs)
-        self.lbl = tk.Label(self, text="You Win!!", font=FONT)
-        self.lbl.pack()
+        btn = tk.Button(self, font=FONT, text='Restart', command=lambda: self.cont(True))
+        btn.pack(padx=GRID_PADDING,fill=tk.X, expand=True)
 
-        btn = tk.Button(self, font=FONT, text='Continue', command=self.cont)
-        btn.pack(fill=tk.X, expand=True)
+        self.place(relx=.5, rely=.5, anchor=tk.CENTER)
 
-        btn = tk.Button(self, font=FONT, text='Restart', command=master.restart)
-        btn.pack(fill=tk.X, expand=True)
-
-    def cont(self):
+    def cont(self, restart):
         self.master.mode = 'overtime'
-        self.master.grid.tkraise()
+        if restart:
+            self.master.restart()
+        self.destroy()
 
 class GameGrid(tk.Frame):
     def __init__(self, master=None, **kwargs):
@@ -158,17 +160,10 @@ class Game(tk.Tk):
     def __init__(self, **kwargs):
         tk.Tk.__init__(self, **kwargs)
         self.title('2048')
-        for key in ('<Up>', '<Down>', '<Left>', '<Right>'):
-            self.bind(key, self.keypress)
+        self.bind('<Key>', self.keypress)
 
         self.status = Status(self)
         self.status.pack(fill=tk.X)
-
-        self.winmessage = WinMessage(self)
-        self.winmessage.place(relx=.5, rely=.5, anchor=tk.CENTER)
-
-        self.losemessage = LoseMessage(self)
-        self.losemessage.place(relx=.5, rely=.5, anchor=tk.CENTER)
 
         self.grid = GameGrid(self)
         self.grid.pack(fill=tk.BOTH, expand=True)
@@ -179,7 +174,6 @@ class Game(tk.Tk):
     def restart(self):
         self.mode = 'normal' # can be 'lost', 'won', 'overtime'
         self.status.curr_score.set(0)
-        self.grid.tkraise()
         for cell in self.cells:
             cell.change()
         self.drop_a_two()
@@ -222,14 +216,14 @@ class Game(tk.Tk):
         # check for winners
         if self.mode == 'normal' and WINNER in [cell.value for cell in self.cells]:
             self.mode = 'won'
-            self.winmessage.tkraise()
+            self.message = Message(self, 'You Won!!')
 
         self.drop_a_two()
 
         # check for losers
         if not self.moves_available():
             self.mode = 'lost'
-            self.losemessage.tkraise()
+            self.message = Message(self, 'You Lost!!')
 
     def drop_a_two(self):
         '''randomly pick an empty cell and make it a 2'''
