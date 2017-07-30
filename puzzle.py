@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 try:
@@ -9,8 +9,8 @@ except ImportError:
     from itertools import izip_longest as zip_longest
 from random import choice
 
-CELL_SIZE = 100 # in pixels
-GRID_LEN = 3
+CELL_SIZE = 100 # minimum, in pixels
+GRID_LEN = 4
 GRID_PADDING = 10
 
 BACKGROUND_COLOR_GAME = "#92877d"
@@ -56,7 +56,7 @@ class Cell(tk.Frame):
         if ANIMATE and value is not None and self.lbl['bg'] != bg:
             self.config(bg=bg)
             self.after(120, self.shrink)
-        if len(text) <=2:
+        if len(text) <= 2:
             font = FONT
         elif len(text) == 3:
             font = FONT_MED
@@ -128,9 +128,14 @@ class ScoreBox(tk.Frame):
         lbl.pack()
 
         var = tk.IntVar()
-        lbl = tk.Label(self, textvariable=var, font=FONT_MED, bg=BACKGROUND_COLOR_GAME, fg='white')
-        lbl.pack(fill=tk.Y, expand=True)
+        var.trace('w', self.draw)
+        self.lbl = tk.Label(self, font=FONT_MED, bg=BACKGROUND_COLOR_GAME, fg='white')
+        self.lbl.pack(fill=tk.Y, expand=True)
         self.set, self.get = var.set, var.get
+        var.set(0)
+
+    def draw(self, *args):
+        self.lbl.config(text='{:,}'.format(self.get()))
 
 class Status(tk.Frame):
     def __init__(self, master=None, **kwargs):
@@ -172,7 +177,7 @@ class Game(tk.Tk):
         self.after(500, lambda: self.minsize(self.winfo_width(), self.winfo_height()))
 
     def restart(self):
-        self.mode = 'normal' # can be 'lost', 'won', 'overtime'
+        self.mode = 'normal' # can be 'normal', 'lost', 'won', or 'overtime'
         self.status.curr_score.set(0)
         for cell in self.cells:
             cell.change()
@@ -234,11 +239,11 @@ class Game(tk.Tk):
         '''check if there are any moves left'''
         for row in self.get_rows():
             values = [cell.value for cell in row]
-            if compute(values) != values:
+            if compute(values)[0] != values:
                 return True
         for row in self.get_cols():
             values = [cell.value for cell in row]
-            if compute(values) != values:
+            if compute(values)[0] != values:
                 return True
         return False
 
