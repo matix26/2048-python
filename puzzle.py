@@ -1,15 +1,23 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import tkinter as tk
-import random
-from itertools import zip_longest
+try:
+    import tkinter as tk
+    from itertools import zip_longest
+except ImportError:
+    import Tkinter as tk
+    from itertools import izip_longest as zip_longest
+from random import choice
 
 CELL_SIZE = 100 # in pixels
 GRID_LEN = 4
 GRID_PADDING = 10
 
 BACKGROUND_COLOR_GAME = "#92877d"
+
+FONT = ("Verdana", 40, "bold")
+FONT_MED = ("Verdana", 25, "bold")
+FONT_SMALL = ("Verdana", 18, "bold")
 
 COLORS = {
     # (foreground color, background color)
@@ -28,14 +36,13 @@ COLORS = {
     }
 
 WINNER = 2048
-WINNER = 16
-FONT = ("Verdana", 40, "bold")
-FONT_MED = ("Verdana", 25, "bold")
-FONT_SMALL = ("Verdana", 18, "bold")
+ANIMATE = True
 
-class Cell(tk.Label):
+class Cell(tk.Frame):
     def __init__(self, master=None, **kwargs):
-        tk.Label.__init__(self, master, justify=tk.CENTER, font=FONT, **kwargs)
+        tk.Frame.__init__(self, master, bg=BACKGROUND_COLOR_GAME, **kwargs)
+        self.lbl = tk.Label(self, justify=tk.CENTER, font=FONT)
+        self.lbl.pack(fill=tk.BOTH, padx=GRID_PADDING, pady=GRID_PADDING, expand=True)
         self.value = None
         self.change()
 
@@ -46,7 +53,13 @@ class Cell(tk.Label):
             while value > WINNER:
                 value //= WINNER
         fg, bg = COLORS[value]
-        self.config(text=text, bg=bg, fg=fg)
+        if ANIMATE and value is not None and self.lbl['bg'] != bg:
+            self.config(bg=bg)
+            self.after(120, self.shrink)
+        self.lbl.config(text=text, bg=bg, fg=fg)
+
+    def shrink(self):
+        self.config(bg=BACKGROUND_COLOR_GAME)
 
 class LoseMessage(tk.Frame):
     def __init__(self, master=None, **kwargs):
@@ -80,7 +93,7 @@ class GameGrid(tk.Frame):
         master.cells = [Cell(self) for _ in range(GRID_LEN**2)]
         for idx, cell in enumerate(master.cells):
             row, col = divmod(idx, GRID_LEN)
-            cell.grid(row=row, column=col, padx=GRID_PADDING, pady=GRID_PADDING, sticky='nsew')
+            cell.grid(row=row, column=col, sticky='nsew')
 
         for i in range(GRID_LEN):
             self.rowconfigure(i, minsize=CELL_SIZE, weight=1)
@@ -108,8 +121,7 @@ def compute(row):
 
 class ScoreBox(tk.Frame):
     def __init__(self, master=None, name=None, **kwargs):
-        tk.Frame.__init__(self, master, bg=BACKGROUND_COLOR_GAME, width=CELL_SIZE, height=CELL_SIZE, **kwargs)
-        self.pack_propagate(False)
+        tk.Frame.__init__(self, master, bg=BACKGROUND_COLOR_GAME, **kwargs)
         lbl = tk.Label(self, text=name, font=FONT_SMALL, bg=BACKGROUND_COLOR_GAME, fg='white')
         lbl.pack()
 
@@ -120,7 +132,8 @@ class ScoreBox(tk.Frame):
 
 class Status(tk.Frame):
     def __init__(self, master=None, **kwargs):
-        tk.Frame.__init__(self, master, **kwargs)
+        tk.Frame.__init__(self, master, height=CELL_SIZE, **kwargs)
+        self.pack_propagate(False)
         btn = tk.Button(self, text='New\nGame', font=FONT_SMALL, command=master.restart)
         btn.pack(side=tk.LEFT)
         self.high_score = ScoreBox(self, "BEST")
@@ -161,6 +174,7 @@ class Game(tk.Tk):
         self.grid.pack(fill=tk.BOTH, expand=True)
 
         self.restart()
+        self.after(500, lambda: self.minsize(self.winfo_width(), self.winfo_height()))
 
     def restart(self):
         self.mode = 'normal' # can be 'lost', 'won', 'overtime'
@@ -191,7 +205,7 @@ class Game(tk.Tk):
             values = [cell.value for cell in row]
             new_values, s = compute(reversed(values) if reverse else values)
             score += s
-            if reverse and values[-len(new_values):] != new_values[::-1]:
+            if reverse and len(new_values) > 0 and values[-len(new_values):] != new_values[::-1]:
                 changed = True
             if not reverse and values[:len(new_values)] != new_values:
                 changed = True
@@ -220,7 +234,7 @@ class Game(tk.Tk):
     def drop_a_two(self):
         '''randomly pick an empty cell and make it a 2'''
         empty_cells = [cell for cell in self.cells if cell.value is None]
-        random.choice(empty_cells).change(2)
+        choice(empty_cells).change(2)
 
     def moves_available(self):
         '''check if there are any moves left'''
